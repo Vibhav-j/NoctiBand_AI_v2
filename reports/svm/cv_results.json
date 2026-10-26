@@ -1,0 +1,14 @@
+{
+  "best_params": {
+    "C": 0.1
+  },
+  "best_cv_score": 0.5842200831834429,
+  "fold_scores": [
+    0.5673413425480713,
+    0.6013158182119848,
+    0.5840030887902726
+  ],
+  "train_time": 503.03170680999756,
+  "tuning_time": 703.7641394138336,
+  "method_note": "Used LinearSVC(dual=False) with 3-fold CalibratedClassifierCV for fast linear boundary and probability outputs."
+}
