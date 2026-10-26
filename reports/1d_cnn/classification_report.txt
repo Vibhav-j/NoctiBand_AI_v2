@@ -1,0 +1,13 @@
+=== 1D CNN Test Classification Report ===
+
+              precision    recall  f1-score   support
+
+        Wake     0.6840    0.7972    0.7363      3122
+          N1     0.4340    0.6031    0.5048      4969
+          N2     0.8490    0.6847    0.7580     51609
+          N3     0.5689    0.8093    0.6682     17912
+         REM     0.7813    0.7800    0.7806     22243
+
+    accuracy                         0.7277     99855
+   macro avg     0.6634    0.7349    0.6896     99855
+weighted avg     0.7578    0.7277    0.7336     99855
