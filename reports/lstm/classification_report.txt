@@ -1,0 +1,13 @@
+=== LSTM Test Classification Report ===
+
+              precision    recall  f1-score   support
+
+        Wake     0.7126    0.5868    0.6436      3122
+          N1     0.3762    0.5327    0.4410      4969
+          N2     0.7983    0.5859    0.6758     51609
+          N3     0.4650    0.9030    0.6139     17912
+         REM     0.8609    0.6805    0.7601     22243
+
+    accuracy                         0.6613     99855
+   macro avg     0.6426    0.6578    0.6269     99855
+weighted avg     0.7288    0.6613    0.6708     99855
