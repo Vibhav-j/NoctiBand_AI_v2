@@ -11,11 +11,11 @@
 - **Disjointness Assertion**: PASSED (Train, Val, Test subject sets are 100% pairwise disjoint; 0 cross-subject contamination).
 
 ## Check B: Feature Columns & Leakage Scrutiny
-- **Classical Models Feature Count**: 108 features
+- **Classical Models Feature Count**: 156 features
 - **CNN / LSTM Input Channels**: 12 base signal features over sequence length W=10
-- **Explicitly Dropped Columns**: `['subject_id', 'night', 'timestamp', 'label', 'sleep_stage']`
+- **Explicitly Dropped Columns**: `['subject_id', 'night', 'timestamp', 'epoch_in_session', 'label', 'sleep_stage']`
 
-### Classical Feature List (Full 108 columns):
+### Classical Feature List (Full 156 columns):
 ```text
   [001] heart_rate_bpm
   [002] spo2_pct
@@ -125,6 +125,54 @@
   [106] motion_intensity_roll6_max
   [107] acc_mag_roll6_max
   [108] gyro_mag_roll6_max
+  [109] heart_rate_bpm_roll10_mean
+  [110] spo2_pct_roll10_mean
+  [111] skin_temp_c_roll10_mean
+  [112] acc_x_g_roll10_mean
+  [113] acc_y_g_roll10_mean
+  [114] acc_z_g_roll10_mean
+  [115] gyro_x_dps_roll10_mean
+  [116] gyro_y_dps_roll10_mean
+  [117] gyro_z_dps_roll10_mean
+  [118] motion_intensity_roll10_mean
+  [119] acc_mag_roll10_mean
+  [120] gyro_mag_roll10_mean
+  [121] heart_rate_bpm_roll10_std
+  [122] spo2_pct_roll10_std
+  [123] skin_temp_c_roll10_std
+  [124] acc_x_g_roll10_std
+  [125] acc_y_g_roll10_std
+  [126] acc_z_g_roll10_std
+  [127] gyro_x_dps_roll10_std
+  [128] gyro_y_dps_roll10_std
+  [129] gyro_z_dps_roll10_std
+  [130] motion_intensity_roll10_std
+  [131] acc_mag_roll10_std
+  [132] gyro_mag_roll10_std
+  [133] heart_rate_bpm_roll10_min
+  [134] spo2_pct_roll10_min
+  [135] skin_temp_c_roll10_min
+  [136] acc_x_g_roll10_min
+  [137] acc_y_g_roll10_min
+  [138] acc_z_g_roll10_min
+  [139] gyro_x_dps_roll10_min
+  [140] gyro_y_dps_roll10_min
+  [141] gyro_z_dps_roll10_min
+  [142] motion_intensity_roll10_min
+  [143] acc_mag_roll10_min
+  [144] gyro_mag_roll10_min
+  [145] heart_rate_bpm_roll10_max
+  [146] spo2_pct_roll10_max
+  [147] skin_temp_c_roll10_max
+  [148] acc_x_g_roll10_max
+  [149] acc_y_g_roll10_max
+  [150] acc_z_g_roll10_max
+  [151] gyro_x_dps_roll10_max
+  [152] gyro_y_dps_roll10_max
+  [153] gyro_z_dps_roll10_max
+  [154] motion_intensity_roll10_max
+  [155] acc_mag_roll10_max
+  [156] gyro_mag_roll10_max
 ```
 
 ### Neural Sequence Base Feature Channels:
@@ -146,8 +194,8 @@
 - **Feature Leakage Scrutiny**: PASSED. Zero columns encode subject IDs, night indices, timestamps, row positions, or sleep stages.
 
 ## Check C: Scaler Verification
-- **Scaler Mean Vector Length**: 108
-- **Scaler Scale Vector Length**: 108
+- **Scaler Mean Vector Length**: 156
+- **Scaler Scale Vector Length**: 156
 - **Scaler Samples Seen Count (`n_samples_seen_`)**: 470400.0
 - **Train Sample Match**: Exact match. The scaler was fit on exactly 470,400 training samples and 0 validation/test samples.
 - **Scaler Fit Audit**: PASSED.

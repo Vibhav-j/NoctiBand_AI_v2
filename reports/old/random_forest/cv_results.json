@@ -1,0 +1,15 @@
+{
+  "best_params": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "min_samples_leaf": 30
+  },
+  "best_cv_score": 0.5231788665757598,
+  "fold_scores": [
+    0.487379994803251,
+    0.5466489220330751,
+    0.5355076828909533
+  ],
+  "train_time": 18.971718788146973,
+  "tuning_time": 25.842819690704346
+}

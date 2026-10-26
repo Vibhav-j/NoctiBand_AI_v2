@@ -1,0 +1,13 @@
+=== XGBoost Test Classification Report ===
+
+              precision    recall  f1-score   support
+
+        Wake     0.6408    0.7204    0.6783      4024
+          N1     0.2889    0.4128    0.3399      5012
+          N2     0.7968    0.5855    0.6750     51609
+          N3     0.4956    0.7647    0.6014     17912
+         REM     0.6835    0.7237    0.7030     22243
+
+    accuracy                         0.6446    100800
+   macro avg     0.5811    0.6414    0.5995    100800
+weighted avg     0.6868    0.6446    0.6516    100800

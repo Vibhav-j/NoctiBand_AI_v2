@@ -79,7 +79,7 @@ The following columns were dropped from the model feature matrix:
   - Computed strictly **within each subject and session** in chronological time order.
   - Window lengths: $N = 3$ epochs (1.5 minutes) and $N = 6$ epochs (3.0 minutes).
   - Statistics per signal: `mean`, `std`, `min`, `max`.
-  - Total engineered feature count: **108 features**.
+  - Total engineered feature count: **156 features**.
 
 ### Sequence Windows for CNN and LSTM
 - Built strictly within each recording session without crossing night or subject boundaries.

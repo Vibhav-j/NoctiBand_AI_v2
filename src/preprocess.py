@@ -93,7 +93,7 @@ def split_subjects(df, train_size=70, val_size=15, test_size=15, seed=42):
     return sorted(list(train_subs)), sorted(list(val_subs)), sorted(list(test_subs))
 
 
-def extract_rolling_features(df, base_cols, windows=[3, 6]):
+def extract_rolling_features(df, base_cols, windows=[3, 6, 10]):
     """
     Computes rolling window statistics (mean, std, min, max) strictly WITHIN
     each (subject_id, night) sequence in chronological time order.
@@ -213,12 +213,15 @@ def run_pipeline(csv_path="data/raw/noctiband_sleep_data_full.csv",
     
     # Feature engineering: base cols + rolling stats
     base_signal_cols = BASE_NUMERIC_COLS + ['acc_mag', 'gyro_mag']
-    print("Computing within-session rolling window features (windows=[3, 6])...")
-    feat_df = extract_rolling_features(df, base_signal_cols, windows=[3, 6])
+    print("Computing within-session rolling window features (windows=[3, 6, 10])...")
+    feat_df = extract_rolling_features(df, base_signal_cols, windows=[3, 6, 10])
     feature_cols = feat_df.columns.tolist()
     
+    # Calculate within-session epoch index (0 to 959) for fair row-matched evaluation
+    df['epoch_in_session'] = df.groupby(['subject_id', 'night']).cumcount()
+    
     # Attach identifiers and label for splitting
-    full_df = pd.concat([df[['subject_id', 'night', 'timestamp', 'label', 'sleep_stage']], feat_df], axis=1)
+    full_df = pd.concat([df[['subject_id', 'night', 'timestamp', 'epoch_in_session', 'label', 'sleep_stage']], feat_df], axis=1)
     
     train_df = full_df[full_df['subject_id'].isin(train_subs)].copy().reset_index(drop=True)
     val_df = full_df[full_df['subject_id'].isin(val_subs)].copy().reset_index(drop=True)
@@ -253,7 +256,7 @@ def run_pipeline(csv_path="data/raw/noctiband_sleep_data_full.csv",
     print(f"Class weights computed on Train: {class_weights_dict}")
     
     # Columns to drop for classical model training:
-    dropped_cols = ['subject_id', 'night', 'timestamp', 'label', 'sleep_stage']
+    dropped_cols = ['subject_id', 'night', 'timestamp', 'epoch_in_session', 'label', 'sleep_stage']
     print(f"Columns dropped for feature matrix: {dropped_cols}")
     
     # Save tabular datasets to parquet

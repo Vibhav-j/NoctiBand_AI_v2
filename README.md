@@ -13,6 +13,14 @@ The pipeline processes raw 30-second epoch sensor recordings across 5 polysomnog
 - **N3** (Deep / slow-wave sleep)
 - **REM** (Rapid Eye Movement)
 
+### Data Authenticity & Synthetic Dataset Notice
+Statistical audit indicates that `noctiband_sleep_data_full.csv` is a synthetic or simulated dataset rather than naturalistic clinical polysomnography recordings. Concrete evidence includes:
+1. **Inflexible Session Lengths**: Every single recording across all 100 participants and 7 nights comprises exactly 960 epochs (standard deviation $= 0.0$), representing an artificial, fixed 8.0-hour window ($22:30:00$ to $06:29:30$) without any early wakeups, sleep onset delays, or sensor disconnects.
+2. **Unrealistically Homogeneous Sleep Architecture**: Individual sleep stage proportions are virtually identical across all 100 participants (e.g., N2 is $51.35\% \pm 0.94\%$, REM is $22.02\% \pm 0.65\%$, N3 is $17.72\% \pm 0.55\%$, N1 is $4.95\% \pm 0.32\%$, and Wake is $3.96\% \pm 0.39\%$), whereas real clinical cohorts show pronounced heterogeneity due to age, sleep efficiency, and respiratory disturbance.
+3. **Rigid Markov Transition Structure**: State transitions follow an idealized synthetic automaton: N1 transitions strictly to N1 ($88.3\%$) or N2 ($11.7\%$) with $0.0\%$ direct transitions to Wake, REM, or N3; N2 never transitions directly to Wake ($0.0\%$); and Wake transitions exclusively to Wake ($90.2\%$) or N1 ($9.8\%$). Real human hypnograms feature frequent brief awakenings and direct arousals from all stages into Wake.
+4. **Sensor Perfection & Artificial Chronology**: The dataset exhibits zero missing timestamps, zero motion-induced optical sensor dropouts, constant 30.000s sampling intervals over two calendar years, and synthetic chronological chaining where each subject's timeline starts immediately upon conclusion of the preceding subject's recording.
+Consequently, while the pipeline establishes rigorous, leak-free methodological benchmarks, performance metrics obtained on this simulated benchmark may not directly transfer to noisy, real-world ambulatory or clinical sleep monitoring without fine-tuning on genuine patient data.
+
 ### Directory Structure
 
 ```

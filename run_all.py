@@ -179,6 +179,10 @@ def run_full_pipeline():
     X_test = test_df[feature_cols].values
     y_test = test_df['label'].values
     
+    # Masks for fair row-matched evaluation
+    val_mask = val_df['epoch_in_session'].values >= 9
+    test_mask = test_df['epoch_in_session'].values >= 9
+    
     seq_train = np.load(os.path.join(processed_dir, "seq_train.npz"))
     seq_val = np.load(os.path.join(processed_dir, "seq_val.npz"))
     seq_test = np.load(os.path.join(processed_dir, "seq_test.npz"))
@@ -188,7 +192,8 @@ def run_full_pipeline():
     # --- MODEL 1: Logistic Regression ---
     res_lr = train_logistic_regression(
         X_train, y_train, groups_train, X_val, y_val, X_test, y_test,
-        feature_cols, reports_dir=reports_dir, models_dir=models_dir, smoke_test=False
+        feature_cols, reports_dir=reports_dir, models_dir=models_dir, smoke_test=False,
+        val_mask=val_mask, test_mask=test_mask
     )
     all_results.append(res_lr)
     git_commit("model: Logistic Regression")
@@ -196,7 +201,8 @@ def run_full_pipeline():
     # --- MODEL 2: Random Forest ---
     res_rf = train_random_forest(
         X_train, y_train, groups_train, X_val, y_val, X_test, y_test,
-        feature_cols, reports_dir=reports_dir, models_dir=models_dir, smoke_test=False
+        feature_cols, reports_dir=reports_dir, models_dir=models_dir, smoke_test=False,
+        val_mask=val_mask, test_mask=test_mask
     )
     all_results.append(res_rf)
     git_commit("model: Random Forest")
@@ -204,7 +210,8 @@ def run_full_pipeline():
     # --- MODEL 3: SVM ---
     res_svm = train_svm(
         X_train, y_train, groups_train, X_val, y_val, X_test, y_test,
-        feature_cols, reports_dir=reports_dir, models_dir=models_dir, smoke_test=False
+        feature_cols, reports_dir=reports_dir, models_dir=models_dir, smoke_test=False,
+        val_mask=val_mask, test_mask=test_mask
     )
     all_results.append(res_svm)
     git_commit("model: SVM")
@@ -212,7 +219,8 @@ def run_full_pipeline():
     # --- MODEL 4: XGBoost ---
     res_xgb = train_xgboost(
         X_train, y_train, groups_train, X_val, y_val, X_test, y_test,
-        feature_cols, meta['class_weights'], reports_dir=reports_dir, models_dir=models_dir, smoke_test=False
+        feature_cols, meta['class_weights'], reports_dir=reports_dir, models_dir=models_dir, smoke_test=False,
+        val_mask=val_mask, test_mask=test_mask
     )
     all_results.append(res_xgb)
     git_commit("model: XGBoost")

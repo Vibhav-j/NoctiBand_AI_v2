@@ -103,7 +103,7 @@ def run_audit(splits_json_path="data/processed/splits.json",
             if tok in col_lower and not any(allowed in col_lower for allowed in ['motion_intensity']):
                 flagged_neural.append((col, tok))
                 
-    log("### Classical Feature List (Full 108 columns):")
+    log(f"### Classical Feature List (Full {len(classical_features)} columns):")
     log("```text")
     for i, c in enumerate(classical_features):
         log(f"  [{i+1:03d}] {c}")
