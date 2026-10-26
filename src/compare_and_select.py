@@ -58,7 +58,7 @@ def compare_models(model_results, reports_dir="reports", models_dir="models"):
     # Generate Visual Charts
     # 1. Macro-F1 and Cohen's Kappa Comparison
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    sns.barplot(data=comp_df, x='Model', y='Test Macro-F1', palette='Blues_r', ax=axes[0])
+    sns.barplot(data=comp_df, x='Model', y='Test Macro-F1', hue='Model', palette='Blues_r', legend=False, ax=axes[0])
     axes[0].set_title('Test Macro-F1 Comparison')
     axes[0].set_ylim(0, 1.0)
     for p in axes[0].patches:
@@ -66,7 +66,7 @@ def compare_models(model_results, reports_dir="reports", models_dir="models"):
                          ha='center', va='center', color='white', fontweight='bold')
     axes[0].tick_params(axis='x', rotation=30)
     
-    sns.barplot(data=comp_df, x='Model', y='Cohen Kappa', palette='Greens_r', ax=axes[1])
+    sns.barplot(data=comp_df, x='Model', y='Cohen Kappa', hue='Model', palette='Greens_r', legend=False, ax=axes[1])
     axes[1].set_title("Test Cohen's Kappa Comparison")
     axes[1].set_ylim(0, 1.0)
     for p in axes[1].patches:
@@ -174,11 +174,23 @@ def compare_models(model_results, reports_dir="reports", models_dir="models"):
     return winner
 
 
+def df_to_markdown(df):
+    try:
+        return df.to_markdown(index=False)
+    except Exception:
+        # Fallback pure-python markdown table
+        headers = list(df.columns)
+        lines = ["| " + " | ".join(headers) + " |", "| " + " | ".join(["---"] * len(headers)) + " |"]
+        for _, row in df.iterrows():
+            lines.append("| " + " | ".join(str(val) for val in row) + " |")
+        return "\n".join(lines)
+
+
 def write_comparison_markdown(reports_dir, comp_df, winner):
     """
     Generates reports/comparison.md markdown report.
     """
-    md_table = comp_df.drop(columns=['Model Path']).to_markdown(index=False)
+    md_table = df_to_markdown(comp_df.drop(columns=['Model Path']))
     content = f"""# Model Benchmarking and Comparison Report
 
 - **Branch**: `pipeline-A`

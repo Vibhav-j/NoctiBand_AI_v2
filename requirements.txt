@@ -39,6 +39,7 @@ scikit-learn==1.9.1
 scipy==1.18.1
 seaborn==0.13.2
 six==1.17.0
+tabulate==0.10.0
 tensorflow==2.22.0rc0
 termcolor==3.3.0
 threadpoolctl==3.7.0
