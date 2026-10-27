@@ -1,0 +1,13 @@
+=== CNN-LSTM Test Classification Report ===
+
+              precision    recall  f1-score   support
+
+        Wake     0.7189    0.7322    0.7255      3122
+          N1     0.4125    0.5955    0.4874      4969
+          N2     0.8562    0.6269    0.7238     51609
+          N3     0.5243    0.8554    0.6501     17912
+         REM     0.7760    0.7847    0.7803     22243
+
+    accuracy                         0.7047     99855
+   macro avg     0.6576    0.7189    0.6734     99855
+weighted avg     0.7524    0.7047    0.7115     99855

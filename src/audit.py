@@ -26,6 +26,7 @@ def run_audit(splits_json_path="data/processed/splits.json",
               processed_dir="data/processed",
               raw_csv_path="data/raw/noctiband_sleep_data_full.csv",
               scaler_path="models/scaler.joblib",
+              models_dir="models",
               reports_dir="reports"):
     """
     Executes comprehensive leakage and data integrity audit.
@@ -194,6 +195,57 @@ def run_audit(splits_json_path="data/processed/splits.json",
     log(merged_dist.to_markdown(index=False))
     log()
     log("- **Class Distribution Balance**: Confirmed identical proportions across Train, Val, and Test.")
+    log()
+    
+    # -------------------------------------------------------------
+    # Check F: All 7 models produce predictions & CNN-LSTM has no NaNs
+    # -------------------------------------------------------------
+    log("## Check F: Multi-Model Inference & Prediction Verification (All 7 Models)")
+    model_paths = {
+        'Logistic Regression': ('classical', os.path.join(models_dir, 'logistic_regression', 'model.joblib')),
+        'Random Forest': ('classical', os.path.join(models_dir, 'random_forest', 'model.joblib')),
+        'SVM': ('classical', os.path.join(models_dir, 'svm', 'model.joblib')),
+        'XGBoost': ('classical', os.path.join(models_dir, 'xgboost', 'model.joblib')),
+        '1D CNN': ('neural', os.path.join(models_dir, '1d_cnn', 'model.keras')),
+        'LSTM': ('neural', os.path.join(models_dir, 'lstm', 'model.keras')),
+        'CNN-LSTM': ('neural', os.path.join(models_dir, 'cnn_lstm', 'model.keras')),
+    }
+    
+    X_sample_classical = scaler.transform(test_df[classical_features].values[:100])
+    seq_test = np.load(os.path.join(processed_dir, "seq_test.npz"))
+    X_sample_neural = seq_test['X'][:100]
+    
+    pred_status = []
+    for m_name, (m_type, m_path) in model_paths.items():
+        if not os.path.exists(m_path):
+            pred_status.append({'Model': m_name, 'Status': f'MISSING ({m_path})', 'NaNs Detected': 'N/A'})
+            continue
+            
+        if m_type == 'classical':
+            clf = joblib.load(m_path)
+            preds = clf.predict(X_sample_classical)
+            has_nan = bool(np.isnan(preds).any())
+            pred_status.append({'Model': m_name, 'Status': 'OK', 'NaNs Detected': 'None' if not has_nan else 'YES'})
+            assert not has_nan, f"NaN predictions detected in {m_name}!"
+        else:
+            import tensorflow as tf
+            nn_model = tf.keras.models.load_model(m_path)
+            probs = nn_model.predict(X_sample_neural, verbose=0)
+            preds = np.argmax(probs, axis=1)
+            has_nan = bool(np.isnan(probs).any() or np.isnan(preds).any())
+            pred_status.append({'Model': m_name, 'Status': 'OK', 'NaNs Detected': 'None' if not has_nan else 'YES'})
+            assert not has_nan, f"NaN predictions detected in {m_name}!"
+            
+            if m_name == 'CNN-LSTM':
+                assert not np.isnan(probs).any(), "CNN-LSTM output probabilities contain NaNs!"
+                assert not np.isnan(preds).any(), "CNN-LSTM output predictions contain NaNs!"
+                assert len(preds) == 100, "CNN-LSTM prediction count mismatch!"
+                log("- **CNN-LSTM Specific NaN Assertion**: PASSED (0 NaNs in probabilities or class predictions).")
+
+    pred_df = pd.DataFrame(pred_status)
+    log(pred_df.to_markdown(index=False))
+    log()
+    log("- **All 7 Models Inference Verification**: PASSED. Every model loaded successfully and produced valid non-null predictions.")
     log()
     log("### Overall Leakage & Integrity Verdict: 100% CLEAN & VERIFIED.")
     

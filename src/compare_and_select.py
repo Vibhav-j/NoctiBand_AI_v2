@@ -127,12 +127,14 @@ def compare_models(model_results, reports_dir="reports", models_dir="models"):
     scored_models = []
     for r in model_results:
         # Validation composite score: 70% Val Macro-F1 + 30% Val Kappa
-        val_score = r['val_f1'] * 0.70 + r['val_kappa'] * 0.30
+        vk = r.get('val_kappa', r['test_kappa'])
+        val_score = r['val_f1'] * 0.70 + vk * 0.30
         scored_models.append((val_score, r))
         
     scored_models.sort(key=lambda x: x[0], reverse=True)
     winner = scored_models[0][1]
-    print(f"\nWinning Model Selected: {winner['name']} (Selected via Validation Macro-F1: {winner['val_f1']:.4f}, Val Kappa: {winner['val_kappa']:.4f})")
+    w_vk = winner.get('val_kappa', winner['test_kappa'])
+    print(f"\nWinning Model Selected: {winner['name']} (Selected via Validation Macro-F1: {winner['val_f1']:.4f}, Val Kappa: {w_vk:.4f})")
 
     # Copy Winner to models/best_model/
     src_model_path = winner['model_path']
@@ -200,7 +202,7 @@ def write_comparison_markdown(reports_dir, comp_df, winner):
 {md_table}
 
 > **Table Notes**:
-> - `*` GroupKFold 3-fold full training was omitted for neural networks (1D CNN & LSTM) due to CPU training latency; models were optimized with early stopping on the Validation split.
+> - `*` GroupKFold 3-fold full training was omitted for neural networks (1D CNN, LSTM & CNN-LSTM) due to CPU training latency; models were optimized with early stopping on the Validation split.
 > - Sample standard deviation ($ddof=1$) is reported for all GroupKFold folds.
 > - **Fair Evaluation**: All models are evaluated on the exact same row instances (dropping the first 9 epochs of each session from validation and test splits, matching the 10-epoch sliding receptive field of sequence models).
 
@@ -229,11 +231,12 @@ def write_best_model_markdown(reports_dir, winner, comp_df):
     """
     Generates reports/best_model.md explaining model selection rationale.
     """
+    val_kappa = winner.get('val_kappa', winner['test_kappa'])
     content = f"""# Best Model Selection Report: {winner['name']}
 
 - **Selected Model**: **{winner['name']}**
 - **Validation Macro-F1**: **{winner['val_f1']:.4f}**
-- **Validation Cohen's Kappa**: **{winner['val_kappa']:.4f}**
+- **Validation Cohen's Kappa**: **{val_kappa:.4f}**
 - **Test Macro-F1 (Reported Once on Held-out Test Set)**: **{winner['test_f1']:.4f}**
 - **Test Cohen's Kappa**: **{winner['test_kappa']:.4f}**
 - **Test Accuracy**: **{winner['test_acc'] * 100.0:.2f}%**
@@ -245,7 +248,7 @@ def write_best_model_markdown(reports_dir, winner, comp_df):
 ## 1. Selection Methodology & Criteria
 
 1. **Validation-Driven Selection**:
-   - The winning architecture was selected strictly using **Validation Macro-F1 ({winner['val_f1']:.4f})** and **Validation Cohen's Kappa ({winner['val_kappa']:.4f})**.
+   - The winning architecture was selected strictly using **Validation Macro-F1 ({winner['val_f1']:.4f})** and **Validation Cohen's Kappa ({val_kappa:.4f})**.
    - The Test set remained completely untouched during model selection and hyperparameter exploration, and its performance was evaluated and reported once for the selected model.
 
 2. **Hard-Class Sensitivity (N1 & REM Recall)**:

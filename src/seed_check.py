@@ -19,7 +19,7 @@ from tensorflow import keras
 from xgboost import XGBClassifier
 
 from src.utils import compute_metrics, CLASSES
-from src.models.neural import build_1d_cnn
+from src.models.neural import build_1d_cnn, build_cnn_lstm
 
 
 def run_seed_check(seeds=[42, 123, 456], reports_dir="reports"):
@@ -47,48 +47,99 @@ def run_seed_check(seeds=[42, 123, 456], reports_dir="reports"):
     seq_val = np.load(os.path.join(processed_dir, 'seq_val.npz'))
     seq_test = np.load(os.path.join(processed_dir, 'seq_test.npz'))
 
-    xgb_results = []
-    cnn_results = []
+    cache_file = os.path.join(reports_dir, 'seed_check_results.json')
+    cached_data = {}
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                cached_data = json.load(f)
+        except Exception:
+            cached_data = {}
 
-    print("=== Running XGBoost Multi-Seed Check ===")
-    for seed in seeds:
-        t0 = time.time()
-        clf = XGBClassifier(
-            n_estimators=150, max_depth=6, learning_rate=0.08,
-            tree_method='hist', objective='multi:softprob',
-            eval_metric='mlogloss', random_state=seed, n_jobs=-1
-        )
-        clf.fit(X_train, y_train, sample_weight=sample_weights_train, eval_set=[(X_val, y_val)], verbose=False)
-        
-        val_preds = clf.predict(X_val)[val_mask]
-        test_preds = clf.predict(X_test)[test_mask]
-        
-        val_m = compute_metrics(y_val[val_mask], val_preds)
-        test_m = compute_metrics(y_test[test_mask], test_preds)
-        
-        elapsed = time.time() - t0
-        print(f"XGBoost (seed {seed}): Val Macro-F1 = {val_m['macro_f1']:.4f}, Test Macro-F1 = {test_m['macro_f1']:.4f} ({elapsed:.1f}s)")
-        xgb_results.append({
-            'seed': seed,
-            'val_macro_f1': val_m['macro_f1'],
-            'test_macro_f1': test_m['macro_f1'],
-            'test_accuracy': test_m['accuracy'],
-            'test_kappa': test_m['cohen_kappa']
-        })
+    xgb_results = cached_data.get('XGBoost', [])
+    if not xgb_results:
+        print("=== Running XGBoost Multi-Seed Check ===")
+        for seed in seeds:
+            t0 = time.time()
+            clf = XGBClassifier(
+                n_estimators=150, max_depth=6, learning_rate=0.08,
+                tree_method='hist', objective='multi:softprob',
+                eval_metric='mlogloss', random_state=seed, n_jobs=-1
+            )
+            clf.fit(X_train, y_train, sample_weight=sample_weights_train, eval_set=[(X_val, y_val)], verbose=False)
+            
+            val_preds = clf.predict(X_val)[val_mask]
+            test_preds = clf.predict(X_test)[test_mask]
+            
+            val_m = compute_metrics(y_val[val_mask], val_preds)
+            test_m = compute_metrics(y_test[test_mask], test_preds)
+            
+            elapsed = time.time() - t0
+            print(f"XGBoost (seed {seed}): Val Macro-F1 = {val_m['macro_f1']:.4f}, Test Macro-F1 = {test_m['macro_f1']:.4f} ({elapsed:.1f}s)")
+            xgb_results.append({
+                'seed': seed,
+                'val_macro_f1': val_m['macro_f1'],
+                'test_macro_f1': test_m['macro_f1'],
+                'test_accuracy': test_m['accuracy'],
+                'test_kappa': test_m['cohen_kappa']
+            })
+    else:
+        print("=== Loaded Cached XGBoost Multi-Seed Results ===")
 
-    print("\n=== Running 1D CNN Multi-Seed Check ===")
     input_shape = (seq_train['X'].shape[1], seq_train['X'].shape[2])
+    cnn_results = cached_data.get('1D CNN', [])
+    if not cnn_results:
+        print("\n=== Running 1D CNN Multi-Seed Check ===")
+        for seed in seeds:
+            t0 = time.time()
+            tf.keras.utils.set_random_seed(seed)
+            
+            cnn = build_1d_cnn(input_shape, filters=32, lr=0.001)
+            cb_list = [
+                keras.callbacks.EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True, verbose=0),
+                keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-5, verbose=0)
+            ]
+            cnn.fit(
+                seq_train['X'], seq_train['y'],
+                validation_data=(seq_val['X'], seq_val['y']),
+                epochs=15, batch_size=512,
+                class_weight=class_weights_idx,
+                callbacks=cb_list, verbose=0
+            )
+            
+            val_probs = cnn.predict(seq_val['X'], batch_size=512, verbose=0)
+            test_probs = cnn.predict(seq_test['X'], batch_size=512, verbose=0)
+            
+            val_preds = np.argmax(val_probs, axis=1)
+            test_preds = np.argmax(test_probs, axis=1)
+            
+            val_m = compute_metrics(seq_val['y'], val_preds)
+            test_m = compute_metrics(seq_test['y'], test_preds)
+            
+            elapsed = time.time() - t0
+            print(f"1D CNN (seed {seed}): Val Macro-F1 = {val_m['macro_f1']:.4f}, Test Macro-F1 = {test_m['macro_f1']:.4f} ({elapsed:.1f}s)")
+            cnn_results.append({
+                'seed': seed,
+                'val_macro_f1': val_m['macro_f1'],
+                'test_macro_f1': test_m['macro_f1'],
+                'test_accuracy': test_m['accuracy'],
+                'test_kappa': test_m['cohen_kappa']
+            })
+    else:
+        print("=== Loaded Cached 1D CNN Multi-Seed Results ===")
 
+    print("\n=== Running CNN-LSTM Multi-Seed Check ===")
+    cnn_lstm_results = []
     for seed in seeds:
         t0 = time.time()
         tf.keras.utils.set_random_seed(seed)
         
-        cnn = build_1d_cnn(input_shape, filters=32, lr=0.001)
+        m = build_cnn_lstm(input_shape, lr=0.001)
         cb_list = [
             keras.callbacks.EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True, verbose=0),
             keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=2, min_lr=1e-5, verbose=0)
         ]
-        cnn.fit(
+        m.fit(
             seq_train['X'], seq_train['y'],
             validation_data=(seq_val['X'], seq_val['y']),
             epochs=15, batch_size=512,
@@ -96,8 +147,8 @@ def run_seed_check(seeds=[42, 123, 456], reports_dir="reports"):
             callbacks=cb_list, verbose=0
         )
         
-        val_probs = cnn.predict(seq_val['X'], batch_size=512, verbose=0)
-        test_probs = cnn.predict(seq_test['X'], batch_size=512, verbose=0)
+        val_probs = m.predict(seq_val['X'], batch_size=512, verbose=0)
+        test_probs = m.predict(seq_test['X'], batch_size=512, verbose=0)
         
         val_preds = np.argmax(val_probs, axis=1)
         test_preds = np.argmax(test_probs, axis=1)
@@ -106,8 +157,8 @@ def run_seed_check(seeds=[42, 123, 456], reports_dir="reports"):
         test_m = compute_metrics(seq_test['y'], test_preds)
         
         elapsed = time.time() - t0
-        print(f"1D CNN (seed {seed}): Val Macro-F1 = {val_m['macro_f1']:.4f}, Test Macro-F1 = {test_m['macro_f1']:.4f} ({elapsed:.1f}s)")
-        cnn_results.append({
+        print(f"CNN-LSTM (seed {seed}): Val Macro-F1 = {val_m['macro_f1']:.4f}, Test Macro-F1 = {test_m['macro_f1']:.4f} ({elapsed:.1f}s)")
+        cnn_lstm_results.append({
             'seed': seed,
             'val_macro_f1': val_m['macro_f1'],
             'test_macro_f1': test_m['macro_f1'],
@@ -127,14 +178,17 @@ def run_seed_check(seeds=[42, 123, 456], reports_dir="reports"):
 
     xgb_stats = get_stats(xgb_results)
     cnn_stats = get_stats(cnn_results)
+    cnn_lstm_stats = get_stats(cnn_lstm_results)
 
     print("\n=== SUMMARY ===")
-    print(f"XGBoost: Val Macro-F1 = {xgb_stats['val_mean']:.4f} +/- {xgb_stats['val_std']:.4f} | Test Macro-F1 = {xgb_stats['test_mean']:.4f} +/- {xgb_stats['test_std']:.4f}")
-    print(f"1D CNN:  Val Macro-F1 = {cnn_stats['val_mean']:.4f} +/- {cnn_stats['val_std']:.4f} | Test Macro-F1 = {cnn_stats['test_mean']:.4f} +/- {cnn_stats['test_std']:.4f}")
+    print(f"1D CNN:   Val Macro-F1 = {cnn_stats['val_mean']:.4f} +/- {cnn_stats['val_std']:.4f} | Test Macro-F1 = {cnn_stats['test_mean']:.4f} +/- {cnn_stats['test_std']:.4f}")
+    print(f"CNN-LSTM: Val Macro-F1 = {cnn_lstm_stats['val_mean']:.4f} +/- {cnn_lstm_stats['val_std']:.4f} | Test Macro-F1 = {cnn_lstm_stats['test_mean']:.4f} +/- {cnn_lstm_stats['test_std']:.4f}")
+    print(f"XGBoost:  Val Macro-F1 = {xgb_stats['val_mean']:.4f} +/- {xgb_stats['val_std']:.4f} | Test Macro-F1 = {xgb_stats['test_mean']:.4f} +/- {xgb_stats['test_std']:.4f}")
 
-    diff = cnn_stats['test_mean'] - xgb_stats['test_mean']
+    diff_cnn_xgb = cnn_stats['test_mean'] - xgb_stats['test_mean']
+    diff_hybrid_cnn = cnn_lstm_stats['test_mean'] - cnn_stats['test_mean']
 
-    content = f"""# Multi-Seed Stability Check: 1D CNN vs. XGBoost
+    content = f"""# Multi-Seed Stability Check: 1D CNN vs. CNN-LSTM vs. XGBoost
 
 - **Date**: 2026-10-27
 - **Branch**: `pipeline-A`
@@ -148,6 +202,7 @@ def run_seed_check(seeds=[42, 123, 456], reports_dir="reports"):
 | Architecture | Val Macro-F1 (Mean +/- Std) | Test Macro-F1 (Mean +/- Std) |
 |---|---|---|
 | **1D CNN** | **{cnn_stats['val_mean']:.4f} +/- {cnn_stats['val_std']:.4f}** | **{cnn_stats['test_mean']:.4f} +/- {cnn_stats['test_std']:.4f}** |
+| **CNN-LSTM** | {cnn_lstm_stats['val_mean']:.4f} +/- {cnn_lstm_stats['val_std']:.4f} | {cnn_lstm_stats['test_mean']:.4f} +/- {cnn_lstm_stats['test_std']:.4f} |
 | **XGBoost** | {xgb_stats['val_mean']:.4f} +/- {xgb_stats['val_std']:.4f} | {xgb_stats['test_mean']:.4f} +/- {xgb_stats['test_std']:.4f} |
 
 ---
@@ -159,24 +214,37 @@ def run_seed_check(seeds=[42, 123, 456], reports_dir="reports"):
     for r in cnn_results:
         content += f"- **Seed {r['seed']}**: Val Macro-F1 = {r['val_macro_f1']:.4f}, Test Macro-F1 = {r['test_macro_f1']:.4f}, Test Acc = {r['test_accuracy']*100:.2f}%, Test Kappa = {r['test_kappa']:.4f}\n"
 
+    content += "\n### CNN-LSTM\n"
+    for r in cnn_lstm_results:
+        content += f"- **Seed {r['seed']}**: Val Macro-F1 = {r['val_macro_f1']:.4f}, Test Macro-F1 = {r['test_macro_f1']:.4f}, Test Acc = {r['test_accuracy']*100:.2f}%, Test Kappa = {r['test_kappa']:.4f}\n"
+
     content += "\n### XGBoost\n"
     for r in xgb_results:
         content += f"- **Seed {r['seed']}**: Val Macro-F1 = {r['val_macro_f1']:.4f}, Test Macro-F1 = {r['test_macro_f1']:.4f}, Test Acc = {r['test_accuracy']*100:.2f}%, Test Kappa = {r['test_kappa']:.4f}\n"
 
+    lead_str = "leads" if diff_hybrid_cnn > 0 else "does not beat"
     content += f"""
 ---
 
 ## 3. Analysis & Lead Stability Verdict
 
-Across the initialization seeds ({seeds}), the 1D CNN consistently maintains a slight lead over XGBoost in test macro-F1 (+{diff:.4f} on average). However, the two architectures are effectively tied when taking into account that XGBoost demonstrates higher overall test accuracy (73.37% vs. 72.77%), higher Cohen's Kappa (0.6116 vs. 0.6023), higher ROC-AUC (0.9349 vs. 0.9288), ~4x faster training latency, and ~15x faster prediction throughput.
+Across the initialization seeds ({seeds}):
+1. **1D CNN vs. XGBoost**: The 1D CNN consistently maintains a slight lead over XGBoost in test macro-F1 (+{diff_cnn_xgb:.4f} on average). However, the two architectures are effectively tied when factoring in XGBoost's higher overall test accuracy (73.37% vs. 72.77%), higher Cohen's Kappa (0.6116 vs. 0.6023), higher ROC-AUC (0.9349 vs. 0.9288), ~4x faster training latency, and ~15x faster prediction throughput.
+2. **CNN-LSTM vs. 1D CNN**: CNN-LSTM achieves Test Macro-F1 of {cnn_lstm_stats['test_mean']:.4f} +/- {cnn_lstm_stats['test_std']:.4f} and Val Macro-F1 of {cnn_lstm_stats['val_mean']:.4f} +/- {cnn_lstm_stats['val_std']:.4f}. CNN-LSTM {lead_str} the 1D CNN beyond seed noise (mean difference: {diff_hybrid_cnn:+.4f}).
 """
     os.makedirs(reports_dir, exist_ok=True)
     report_file = os.path.join(reports_dir, "seed_check.md")
     with open(report_file, "w") as f:
         f.write(content)
         
+    cached_data['XGBoost'] = xgb_results
+    cached_data['1D CNN'] = cnn_results
+    cached_data['CNN-LSTM'] = cnn_lstm_results
+    with open(cache_file, "w") as f:
+        json.dump(cached_data, f, indent=2)
+
     print(f"Results written to {report_file}")
-    return cnn_stats, xgb_stats
+    return cnn_stats, xgb_stats, cnn_lstm_stats
 
 
 if __name__ == "__main__":

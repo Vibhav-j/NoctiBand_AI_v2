@@ -16,9 +16,10 @@
 | XGBoost             | 0.6664 +/- 0.0384            |           79.74 |         75.37 |          73.37 |           0.7527 |         0.6833 |          0.6795 |        0.6116 |          0.9349 |           57.21 |            77.79 |                        7.32 |             31.9 |                0.002 |            3292.5 |
 | 1D CNN              | N/A*                         |           81.49 |         74.97 |          72.77 |           0.7807 |         0.6977 |          0.6896 |        0.6023 |          0.9288 |           60.31 |            78    |                        9.11 |            139.3 |                0.029 |             665.9 |
 | LSTM                | N/A*                         |           70.55 |         69.22 |          66.13 |           0.6686 |         0.6518 |          0.6269 |        0.5146 |          0.9111 |           53.27 |            68.05 |                        4.17 |            114.6 |                0.035 |             346.9 |
+| CNN-LSTM            | N/A*                         |           78.95 |         73.38 |          70.47 |           0.7492 |         0.688  |          0.6734 |        0.5765 |          0.926  |           59.55 |            78.47 |                        7.58 |            262.8 |                0.054 |             591.8 |
 
 > **Table Notes**:
-> - `*` GroupKFold 3-fold full training was omitted for neural networks (1D CNN & LSTM) due to CPU training latency; models were optimized with early stopping on the Validation split.
+> - `*` GroupKFold 3-fold full training was omitted for neural networks (1D CNN, LSTM & CNN-LSTM) due to CPU training latency; models were optimized with early stopping on the Validation split.
 > - Sample standard deviation ($ddof=1$) is reported for all GroupKFold folds.
 > - **Fair Evaluation**: All models are evaluated on the exact same row instances (dropping the first 9 epochs of each session from validation and test splits, matching the 10-epoch sliding receptive field of sequence models).
 

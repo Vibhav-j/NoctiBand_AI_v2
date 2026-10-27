@@ -216,4 +216,18 @@
 
 - **Class Distribution Balance**: Confirmed identical proportions across Train, Val, and Test.
 
+## Check F: Multi-Model Inference & Prediction Verification (All 7 Models)
+- **CNN-LSTM Specific NaN Assertion**: PASSED (0 NaNs in probabilities or class predictions).
+| Model               | Status   | NaNs Detected   |
+|:--------------------|:---------|:----------------|
+| Logistic Regression | OK       | None            |
+| Random Forest       | OK       | None            |
+| SVM                 | OK       | None            |
+| XGBoost             | OK       | None            |
+| 1D CNN              | OK       | None            |
+| LSTM                | OK       | None            |
+| CNN-LSTM            | OK       | None            |
+
+- **All 7 Models Inference Verification**: PASSED. Every model loaded successfully and produced valid non-null predictions.
+
 ### Overall Leakage & Integrity Verdict: 100% CLEAN & VERIFIED.

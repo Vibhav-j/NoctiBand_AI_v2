@@ -32,7 +32,8 @@ from src.models.classical import (
 )
 from src.models.neural import (
     train_1d_cnn,
-    train_lstm
+    train_lstm,
+    train_cnn_lstm
 )
 from src.compare_and_select import compare_models
 
@@ -137,7 +138,15 @@ def run_smoke_test():
         meta['class_weights'], reports_dir=smoke_reports_dir, models_dir=smoke_models_dir, smoke_test=True
     )
     
-    print("\n>>> SMOKE TEST PASSED SUCCESSFULLY ON ALL 6 ARCHITECTURES! <<<")
+    print("Testing CNN-LSTM...")
+    _ = train_cnn_lstm(
+        seq_train['X'], seq_train['y'], seq_train['groups'],
+        seq_val['X'], seq_val['y'],
+        seq_test['X'], seq_test['y'],
+        meta['class_weights'], reports_dir=smoke_reports_dir, models_dir=smoke_models_dir, smoke_test=True
+    )
+    
+    print("\n>>> SMOKE TEST PASSED SUCCESSFULLY ON ALL 7 ARCHITECTURES! <<<")
 
 
 def run_full_pipeline():
@@ -244,6 +253,16 @@ def run_full_pipeline():
     )
     all_results.append(res_lstm)
     git_commit("model: LSTM")
+    
+    # --- MODEL 7: CNN-LSTM ---
+    res_cnn_lstm = train_cnn_lstm(
+        seq_train['X'], seq_train['y'], seq_train['groups'],
+        seq_val['X'], seq_val['y'],
+        seq_test['X'], seq_test['y'],
+        meta['class_weights'], reports_dir=reports_dir, models_dir=models_dir, smoke_test=False
+    )
+    all_results.append(res_cnn_lstm)
+    git_commit("model: CNN-LSTM")
     
     # --- STEP 5: COMPARE AND SELECT ---
     print("\n--- STEP 5: COMPARING MODELS & SELECTING WINNER ---")
