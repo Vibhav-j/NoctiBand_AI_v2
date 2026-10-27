@@ -44,7 +44,7 @@ flowchart TD
     E --> F["Branch 1: Tabular Matrix (156 Features with Rolling Stats)"]
     E --> G["Branch 2: Sequence Tensors (10 Epochs x 12 Channels)"]
     F --> H["Classical Models: Logistic Regression, RF, SVM, XGBoost"]
-    G --> I["Deep Sequence Models: 1D CNN, LSTM"]
+    G --> I["Deep Sequence Models: 1D CNN, LSTM, CNN-LSTM"]
     H --> J["Fair Row-Matched Evaluation (99,855 Matched Epochs)"]
     I --> J
     J --> K["Validation-Driven Model Selection (src/compare_and_select.py)"]
@@ -66,18 +66,20 @@ NoctiBand_AI_v2/
 │   ├── xgboost/             # Trained XGBoost joblib artifact
 │   ├── 1d_cnn/              # Trained 1D CNN Keras model (.keras)
 │   ├── lstm/                # Trained LSTM Keras model (.keras)
+│   ├── cnn_lstm/            # Trained CNN-LSTM hybrid Keras model (.keras)
 │   └── best_model/          # Staged winning model package for production deployment
 ├── notebooks/               # Directory for exploratory Jupyter notebooks
 ├── reports/                 # Markdown reports, metrics JSON, confusion matrices, charts
 │   ├── eda.md               # Exploratory data analysis and raw data inspection
 │   ├── preprocessing.md     # Preprocessing, splitting, and scaling decisions
-│   ├── comparison.csv       # Side-by-side benchmark table across all 6 models
+│   ├── comparison.csv       # Side-by-side benchmark table across all 7 models
 │   ├── comparison.md        # Formatted markdown comparison report
 │   ├── best_model.md        # Winner selection report and architectural tradeoffs
-│   ├── seed_check.md        # Multi-seed stability analysis (1D CNN vs. XGBoost)
+│   ├── seed_check.md        # Multi-seed stability analysis (1D CNN vs. CNN-LSTM vs. XGBoost)
 │   ├── audit.md             # Data leakage and boundary audit report
 │   ├── old/                 # Historical archive of initial unaligned benchmark runs
 │   ├── *_comparison.png     # Benchmark bar charts (macro-F1, kappa, recall, generalization)
+│   ├── cnn_lstm/            # CNN-LSTM confusion matrices, reports, training curves
 │   └── <model_name>/        # Model-specific confusion matrices, reports, training curves
 ├── src/                     # Reusable Python source modules
 │   ├── preprocess.py        # Cleaning, subject splitting, scaling, and sequence building
@@ -87,7 +89,7 @@ NoctiBand_AI_v2/
 │   ├── compare_and_select.py# Multi-model benchmarking, chart generation, and model selection
 │   └── models/              # Model training implementations
 │       ├── classical.py     # Training and tuning for Logistic Regression, RF, SVM, XGBoost
-│       └── neural.py        # Keras implementations and training for 1D CNN and LSTM
+│       └── neural.py        # Keras implementations and training for 1D CNN, LSTM, and CNN-LSTM
 ├── predict.py               # Standalone production inference script for new raw CSVs
 ├── run_all.py               # Master end-to-end pipeline execution runner
 ├── README.md                # Comprehensive project documentation
@@ -100,10 +102,10 @@ NoctiBand_AI_v2/
 |---|---|---|---|
 | `src/preprocess.py` | Cleans sensor data, performs subject-level splitting, computes temporal rolling features, fits scalers on training data, and creates sliding sequence tensors | `data/raw/noctiband_sleep_data_full.csv` | `data/processed/train.parquet`, `val.parquet`, `test.parquet`, `seq_*.npz`, `splits.json`, `models/scaler.joblib`, `models/class_weights.json` |
 | `src/models/classical.py` | Trains and tunes Logistic Regression, Random Forest, SVM (LinearSVC), and XGBoost using GroupKFold on training subjects, with row-matched evaluation | `data/processed/*.parquet`, `features_meta.json` | `models/<model>/model.joblib`, `reports/<model>/` confusion matrices, classification reports, feature importance |
-| `src/models/neural.py` | Constructs and trains 1D CNN and LSTM sequence architectures with early stopping and learning rate scheduling | `data/processed/seq_*.npz`, `features_meta.json` | `models/<model>/model.keras`, `reports/<model>/` confusion matrices, loss and accuracy curves |
-| `src/compare_and_select.py` | Gathers metrics across all models, produces comparative tables and charts, selects the winner on validation metrics, and stages production artifacts | `reports/<model>/metrics.json`, `cv_results.json` | `reports/comparison.csv`, `reports/comparison.md`, `reports/best_model.md`, `reports/*_comparison.png`, `models/best_model/` |
-| `src/audit.py` | Verifies subject partition disjointness, inspects feature lists for identity or temporal leakage, asserts scaler fit boundaries, and validates sequence limits | `data/processed/splits.json`, `features_meta.json`, `models/scaler.joblib`, processed tables | `reports/audit.md` |
-| `src/seed_check.py` | Re-evaluates 1D CNN and XGBoost across multiple random seeds to test performance stability | `data/processed/*.parquet`, `seq_*.npz` | `reports/seed_check.md` |
+| `src/models/neural.py` | Constructs and trains 1D CNN, LSTM, and CNN-LSTM sequence architectures with early stopping and learning rate scheduling | `data/processed/seq_*.npz`, `features_meta.json` | `models/<model>/model.keras`, `reports/<model>/` confusion matrices, loss and accuracy curves |
+| `src/compare_and_select.py` | Gathers metrics across all 7 models, produces comparative tables and charts, selects the winner on validation metrics, and stages production artifacts | `reports/<model>/metrics.json`, `cv_results.json` | `reports/comparison.csv`, `reports/comparison.md`, `reports/best_model.md`, `reports/*_comparison.png`, `models/best_model/` |
+| `src/audit.py` | Verifies subject partition disjointness, inspects feature lists for identity or temporal leakage, asserts scaler fit boundaries, validates sequence limits, and verifies predictions across all 7 models | `data/processed/splits.json`, `features_meta.json`, `models/scaler.joblib`, processed tables, model binaries | `reports/audit.md` |
+| `src/seed_check.py` | Re-evaluates 1D CNN, CNN-LSTM, and XGBoost across multiple random seeds to test performance stability | `data/processed/*.parquet`, `seq_*.npz` | `reports/seed_check.md` |
 | `run_all.py` | Master orchestrator running the smoke test, full preprocessing, sequential model training, benchmarking, and inference verification | Raw input dataset | Full pipeline artifacts across `data/`, `models/`, and `reports/` |
 | `predict.py` | Command-line inference script generating sleep stage predictions on arbitrary raw NoctiBand CSVs | New input CSV, `models/best_model/*` | Output CSV with predicted stage labels and class probabilities |
 
@@ -143,6 +145,25 @@ NoctiBand_AI_v2/
 - **Output Shape**: `(5,)`
 - **Optimizer & Loss**: Adam (learning rate = 0.001), `sparse_categorical_crossentropy`.
 - **Class Weights & Scheduling**: Identical inverse-frequency class weights, early stopping on validation loss (patience = 5), and `ReduceLROnPlateau`.
+
+#### CNN-LSTM (Hybrid)
+- **Input Shape**: `(10, 12)` (10 consecutive 30-second epochs with 12 normalized base sensor channels).
+- **Layer Sequence**:
+  1. `Conv1D`: 32 filters, kernel size 3, padding 'same' (1,184 params)
+  2. `BatchNormalization` (128 params)
+  3. `Activation`: ReLU
+  4. `Conv1D`: 64 filters, kernel size 3, padding 'same' (6,208 params)
+  5. `BatchNormalization` (256 params)
+  6. `Activation`: ReLU
+  7. `Dropout`: 0.2
+  8. `LSTM`: 64 units, `return_sequences=False`, `recurrent_dropout=0.2` (33,024 params)
+  9. `Dense`: 64 units, activation ReLU (4,160 params)
+  10. `Dropout`: 0.3
+  11. `Dense` (Output Head): 5 units, activation Softmax (325 params)
+- **Parameter Count**: **45,285 total parameters** (45,093 trainable, 192 non-trainable; model file size: 591.8 KB).
+- **Architectural Motivation**: Combines convolutional and recurrent representations without temporal pooling. The 1D convolutional layers extract local temporal-channel patterns from sensor signals across adjacent epochs, while the subsequent 64-unit LSTM models sleep stage transition dynamics across the full 10-epoch context without losing temporal resolution.
+- **Optimizer & Loss**: Adam (learning rate = 0.001), `sparse_categorical_crossentropy`.
+- **Class Weights & Scheduling**: Identical inverse-frequency class weights, `EarlyStopping` on validation loss (patience = 5, restore best weights), and `ReduceLROnPlateau` (factor = 0.5, patience = 2, min lr = 1e-5).
 
 ### Classical Model Hyperparameters
 
@@ -209,7 +230,7 @@ To provide classical tabular models with temporal context matching the 1D CNN's 
 - Total features = 12 base signals + (12 signals $\times$ 4 summary statistics $\times$ 3 window lengths) = **156 tabular features**.
 
 ### Sequence Model Inputs
-The 1D CNN and LSTM consume 3D sequence tensors of shape `(N, 10, 12)`: 10 consecutive 30-second epochs (5.0 minutes of continuous history) across the 12 normalized base sensor channels.
+The 1D CNN, LSTM, and CNN-LSTM consume 3D sequence tensors of shape `(N, 10, 12)`: 10 consecutive 30-second epochs (5.0 minutes of continuous history) across the 12 normalized base sensor channels.
 
 ### Deliberately Excluded Columns
 The following columns were dropped from all model inputs to prevent target and identity leakage:
@@ -230,6 +251,7 @@ The following columns were dropped from all model inputs to prevent target and i
 | **XGBoost** | High-performance gradient-boosted decision tree ensemble using histogram binning and sample weights. | 156 tabular rolling features |
 | **1D CNN** | Deep 1D convolutional neural network extracting hierarchical temporal patterns across consecutive sleep epochs. | Sequences of 10 epochs $\times$ 12 channels |
 | **LSTM** | Recurrent neural network with stacked bidirectional and unidirectional LSTM layers tracking sleep state transitions. | Sequences of 10 epochs $\times$ 12 channels |
+| **CNN-LSTM** | Hybrid deep architecture combining 1D convolutions for channel-level feature extraction with an LSTM for sequence state modeling. | Sequences of 10 epochs $\times$ 12 channels |
 
 ---
 
@@ -241,8 +263,9 @@ All models were evaluated on the exact same row instances by dropping the first 
 
 | Model Architecture | Test Accuracy | Test Macro-F1 | Cohen's Kappa | ROC-AUC (OvR) | N1 Recall | REM Recall | Training Time | Model Size |
 |---|---|---|---|---|---|---|---|---|
-| **1D CNN** | 72.77% | **0.6896** | 0.6023 | 0.9288 | 60.31% | **78.00%** | 139.3s | 665.9 KB |
+| **1D CNN** | 72.77% | **0.6896** | 0.6023 | 0.9288 | 60.31% | 78.00% | 139.3s | 665.9 KB |
 | **XGBoost** | 73.37% | 0.6795 | **0.6116** | **0.9349** | 57.21% | 77.79% | 31.9s | 3,292.5 KB |
+| **CNN-LSTM** | 70.47% | 0.6734 | 0.5765 | 0.9260 | 59.55% | **78.47%** | 262.8s | 591.8 KB |
 | **Logistic Regression** | 69.36% | 0.6596 | 0.5628 | 0.9276 | **61.54%** | 75.33% | 61.9s | **7.0 KB** |
 | **SVM (LinearSVC)** | **74.39%** | 0.6539 | 0.5753 | 0.9225 | 32.54% | 73.79% | 776.9s | 21.3 KB |
 | **LSTM** | 66.13% | 0.6269 | 0.5146 | 0.9111 | 53.27% | 68.05% | 114.6s | 346.9 KB |
@@ -252,11 +275,14 @@ All models were evaluated on the exact same row instances by dropping the first 
 
 ### Winning Architecture & Tradeoffs
 
-The **1D CNN** achieved the highest test macro-F1 (0.6896) and was selected on validation macro-F1 (0.6977). However, **XGBoost is effectively tied in overall performance**:
-- **Accuracy and Agreement**: XGBoost achieves higher overall test accuracy (73.37% vs. 72.77%), higher Cohen's kappa (0.6116 vs. 0.6023), and higher ROC-AUC (0.9349 vs. 0.9288).
-- **Speed**: XGBoost trains ~4x faster (31.9s vs. 139.3s) and generates predictions ~15x faster (0.002 ms/epoch vs. 0.029 ms/epoch).
-- **Footprint**: The 1D CNN model binary is ~5x smaller (665.9 KB vs. 3.3 MB).
-- **Seed Stability Check**: Retraining both models across 3 random seeds ([42, 123, 456]) yielded mean test macro-F1 scores of **0.6842 $\pm$ 0.0060** for the 1D CNN and **0.6795 $\pm$ 0.0000** for XGBoost. The 1D CNN maintains a slight edge in macro-F1 (+0.0047), while XGBoost remains faster and more accurate overall.
+The **1D CNN** achieved the highest test macro-F1 (0.6896) and was selected on validation macro-F1 (0.6977) and validation kappa (0.6311). Comparing the top deep learning and tree ensemble architectures reveals clear operational tradeoffs:
+- **1D CNN vs. XGBoost**: The 1D CNN leads XGBoost by ~0.01 in test macro-F1 (0.6896 vs. 0.6795) and offers a ~5x smaller model binary (665.9 KB vs. 3.3 MB). However, XGBoost is higher on test accuracy (73.37% vs. 72.77%), Cohen's kappa (0.6116 vs. 0.6023), and ROC-AUC (0.9349 vs. 0.9288), while training 4.4x faster (31.9s vs. 139.3s) and predicting 14.5x faster (0.002 ms vs. 0.029 ms/epoch). The two are effectively tied.
+- **CNN-LSTM Hybrid Performance**: The CNN-LSTM hybrid achieved 0.6734 test macro-F1 (0.6880 validation macro-F1) and 70.47% test accuracy, trailing both 1D CNN and XGBoost. Because the 10-epoch window (5.0 min) presents relatively short temporal dependencies, the pure 1D CNN's stacked convolutional filters and global average pooling capture local patterns without the recurrent gradient overhead of unrolled LSTM units. CNN-LSTM took 262.8s to train (~1.9x slower than 1D CNN) and has higher inference latency (0.054 ms vs. 0.029 ms/epoch, ~1.8x slower), though it achieved the highest REM recall (78.47%) and a compact 591.8 KB binary.
+- **Seed Stability Check**: Retraining across 3 random seeds ([42, 123, 456]) yielded:
+  - **1D CNN**: Val Macro-F1 = **0.6957 $\pm$ 0.0065**, Test Macro-F1 = **0.6842 $\pm$ 0.0061**
+  - **CNN-LSTM**: Val Macro-F1 = 0.6940 $\pm$ 0.0106, Test Macro-F1 = 0.6754 $\pm$ 0.0018
+  - **XGBoost**: Val Macro-F1 = 0.6833 $\pm$ 0.0000, Test Macro-F1 = 0.6795 $\pm$ 0.0000
+  CNN-LSTM does not beat the 1D CNN beyond seed noise (mean test macro-F1 is 0.0088 lower than 1D CNN). The pure 1D CNN remains the selected winning model.
 
 ### Best Model Per-Class Metrics (1D CNN)
 
@@ -289,7 +315,7 @@ Rows represent true ground-truth stages; columns represent model predictions (% 
 ### Visual Comparison Charts
 
 ![Macro-F1 and Kappa Comparison](reports/macro_f1_kappa_comparison.png)
-*Figure 1: Test Macro-F1 and Cohen's Kappa across all six evaluated models.*
+*Figure 1: Test Macro-F1 and Cohen's Kappa across all seven evaluated models.*
 
 ![Hard Class Recall Comparison](reports/hard_class_recall_comparison.png)
 *Figure 2: Sensitivity (Recall %) on the difficult minority stages N1 and REM.*
@@ -314,7 +340,7 @@ To ensure valid evaluation that reflects performance on unseen human participant
 - **Simulated Telemetry**: The underlying data is synthetic, meaning that real-world sensor drift, skin tone variations, loose strap disconnects, and motion artifacts are absent.
 - **Statistical Parity Between Top Models**: The 1D CNN's ~0.01 macro-F1 lead over XGBoost is small enough to be influenced by random seed variance (+0.0047 across multi-seed evaluations).
 - **Lower N1 Precision**: N1 precision remains at 43.40% because brief drowsy periods frequently share physiological overlap with light N2 sleep and wakefulness.
-- **Neural Network Cross-Validation**: Full 3-fold cross-validation on neural network architectures was omitted due to CPU training latency; neural nets were tuned using early stopping on the validation partition.
+- **Neural Network Cross-Validation**: Full 3-fold cross-validation on neural network architectures (1D CNN, LSTM, and CNN-LSTM) was omitted due to CPU training latency; neural nets were tuned using early stopping on the validation partition.
 
 ---
 
@@ -345,7 +371,7 @@ data/raw/noctiband_sleep_data_full.csv
 
 ### 3. Run Pipeline
 
-Run the master script to execute the smoke test, preprocess features, train all six models, generate reports, and stage the best model:
+Run the master script to execute the smoke test, preprocess features, train all seven models, generate reports, and stage the best model:
 
 ```bash
 python run_all.py
